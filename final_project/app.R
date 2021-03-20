@@ -96,6 +96,8 @@ ui <- dashboardPage(
             
             # third tab content
             tabItem(tabName = "datatable",
+                    #download button to download dataframe into csv file
+                    downloadButton("download","Download Data"),
                     DT::dataTableOutput("table")
             )
         )
@@ -166,7 +168,13 @@ server <- function(input, output) {
         )
         
     )
-    
+    #Allow users to download data from the shiny app
+    output$download <- downloadHandler(
+        filename = "rawdata.csv",
+        content = function(file) {
+            write.csv(data, file,row.names = FALSE)
+        }
+    )
     
     
     
