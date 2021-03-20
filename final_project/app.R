@@ -1,5 +1,5 @@
 # Shiny R for Operations
-# Homework 2
+# Final Project
 # Andrew ID: zhilianz
 
 
@@ -19,20 +19,15 @@ library(rgeos)
 library(rgdal)
 library(leaflet.extras)
 
-# Read data
-url <- URLencode('https://data.wprdc.org/api/3/action/datastore_search_sql?sql=SELECT * from "b6340d98-69a0-4965-a9b4-3480cea1182b"', repeated = TRUE)
+# # Read data
 
-# Send request
-get <- GET(url)
-# Retrieve results
-rawdata <- fromJSON(content(get, "text"))$result$records
+rawdata <-  read.csv("fire_dispatch.csv")
 # Data originally contains 500,000 rows, manually created a subset of original data
 data <- rawdata %>% sample_n(500, replace = FALSE)
 #Drop entire column if
 data <- data[,colSums(is.na(data))<nrow(data)]
 
 pitts <- readOGR("https://opendata.arcgis.com/datasets/9de0e9c07af04e638dbc9cb9070962c2_0.geojson")
-#pitts<- readOGR("./county/Allegheny_County_Census_Block_Groups_2016.shp", layer = "Allegheny_County_Census_Block_Groups_2016")
 
 
 ui <- dashboardPage(
@@ -58,7 +53,7 @@ ui <- dashboardPage(
                                
                         ),
                         column(4,
-                               checkboxGroupInput("year","select_year",choices = unique(data$call_year))
+                               checkboxGroupInput("year","select_year",choices = unique(sort(data$call_year)))
                                
                         )
                     )
@@ -67,11 +62,11 @@ ui <- dashboardPage(
             ),
             
             
-            # Second tab content 
+            # Second tab content with three input filters
             tabItem(tabName = "chart",
                     fluidRow(
                         column(4,
-                               checkboxGroupInput("view_year","Select year",choices = unique(data$call_year),selected = c('2016','2017','2018','2019') ),
+                               checkboxGroupInput("view_year","Select year",choices = unique(sort(data$call_year)),selected = c('2016','2017','2018','2019')),
                                
                         ),
                         column(4,
@@ -83,6 +78,7 @@ ui <- dashboardPage(
                                
                         )
                     ),
+                    #two interactive plots using plotly
                     fluidRow(
                         column(4,
                                plotlyOutput("plot1")
@@ -105,6 +101,7 @@ ui <- dashboardPage(
 )
 
 server <- function(input, output) {
+    #create the leafletmap
     
     output$leafletmap <- renderLeaflet({
         leaflet() %>%
@@ -119,9 +116,12 @@ server <- function(input, output) {
             )
     })
     
+    #filter dataset
     data_subset <- reactive({
         #filted by city 
         data2 <- subset(data, city_name %in% input$city)
+        #filted by year 
+        
         data2 <- subset(data, call_year %in% input$year)
         
         return(data2)
@@ -137,24 +137,25 @@ server <- function(input, output) {
     })
     
     data_subset2 <- reactive({
-        #filted by city 
+        #filted by city, year and priority description
         data3 <- data
         data3 <- subset(data3, call_year %in% input$view_year)
         data3 <- subset(data3, city_name %in% input$view_city)
         data3 <- subset(data3 ,priority_desc %in% input$view_priority)
-        print(data3)
         return(data3)
     })
+    
     output$plot1 <- renderPlotly({
         ggplot(data = data_subset2(),
                aes(x = call_year, fill = call_year)) +
             labs (y = "Incident counts on specific priority", x = "Incident Year") +
             geom_bar(stat = 'count') 
     })
+    
     output$plot2 <- renderPlotly({
         ggplot(data = data_subset2(),
                aes(x = city_name, fill = city_name)) +
-            labs (x = "City name", x = "Incident counts on specific city") +
+            labs (x = "City Name", y = "Incident counts on specific city") +
             geom_bar(stat = 'count') 
     })
     
