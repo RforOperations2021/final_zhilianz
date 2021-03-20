@@ -119,10 +119,11 @@ server <- function(input, output) {
     #filter dataset
     data_subset <- reactive({
         #filted by city 
-        data2 <- subset(data, city_name %in% input$city)
+        data2 <- data
+        data2 <- subset(data2, city_name %in% input$city)
         #filted by year 
         
-        data2 <- subset(data, call_year %in% input$year)
+        data2 <- subset(data2, call_year %in% input$year)
         
         return(data2)
     })
