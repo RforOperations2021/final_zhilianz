@@ -20,21 +20,23 @@ library(rgdal)
 library(leaflet.extras)
 
 # Read data 
-url <- URLencode('https://data.wprdc.org/api/3/action/datastore_search_sql?sql=SELECT * from "ff33ca18-2e0c-4cb5-bdcd-60a5dc3c0418"', repeated = TRUE)
+url <- URLencode('https://data.wprdc.org/api/3/action/datastore_search_sql?sql=SELECT * from "b6340d98-69a0-4965-a9b4-3480cea1182b"', repeated = TRUE)
+
 # Send request
 get <- GET(url)
 # Retrieve results
 rawdata <- fromJSON(content(get, "text"))$result$records
 # Data originally contains 500,000 rows, manually created a subset of original data
 data <- rawdata %>% sample_n(500, replace = FALSE)
+#Drop entire column if
+data <- data[,colSums(is.na(data))<nrow(data)]
+
+pitts <- readOGR("https://pghgishub-pittsburghpa.opendata.arcgis.com/datasets/a99f25fffb7b41c8a4adf9ea676a3a0b_0.geojson?outSR=%7B%22latestWkid%22%3A2272%2C%22wkid%22%3A102729%7D")
+# pitts<- readOGR("./county/Allegheny_County_Census_Block_Groups_2016.shp", layer = "Allegheny_County_Census_Block_Groups_2016")
 
 
-#pitts <- readOGR("https://pghgishub-pittsburghpa.opendata.arcgis.com/datasets/a99f25fffb7b41c8a4adf9ea676a3a0b_0.geojson?outSR=%7B%22latestWkid%22%3A2272%2C%22wkid%22%3A102729%7D")
-pitts <- readOGR("./county/Allegheny_County_Census_Block_Groups_2016.shp", layer = "Allegheny_County_Census_Block_Groups_2016")
-
-
-plotui <- dashboardPage(
-    dashboardHeader(title = "911 EMS Dispatches"),
+ui <- dashboardPage(
+    dashboardHeader(title = "911 Fire Dispatches"),
     dashboardSidebar(
         sidebarMenu(
             menuItem("Map", tabName = "map", icon = icon("dashboard")),
@@ -45,19 +47,23 @@ plotui <- dashboardPage(
     ),
     dashboardBody(
         tabItems(
-            # First tab content, display basic statistics from five angles in gauge
+            # First tab content
             tabItem(tabName = "map",
+                    
+                    shinyjs::useShinyjs(),
+                    tags$style(type = "text/css", ".leaflet {height: 60vh !important;}"),
+                    leafletOutput("leafletmap")
                     
             ),
             
             
-            # Second tab content generate reactive charts based on how many states selected
+            # Second tab content 
             tabItem(tabName = "chart",
                     
                     
             ),
-
-            # fourth tab content, table output
+            
+            # third tab content
             tabItem(tabName = "datatable",
                     DT::dataTableOutput("table")
             )
@@ -66,18 +72,30 @@ plotui <- dashboardPage(
 )
 
 server <- function(input, output) {
-
-
-        #Create table output
-        output$table = DT::renderDataTable(
-            DT::datatable(data = selected_data,
-                          options = list(pageLength = 10),
-                          rownames = FALSE
+    
+    output$leafletmap <- renderLeaflet({
+        leaflet() %>%
+            addProviderTiles("OpenStreetMap.HOT", group = "HOT") %>%
+            addProviderTiles("Stamen.TonerLite", group = "Toner Lite") %>%
+            addPolygons(data = pitts, color = "darkblue",group = "Show County",weight = 2 ) %>%
+            setView(-80.000, 40.400, 11) %>%
+            addLayersControl(
+                baseGroups = c("HOT", "Toner Lite"),
+                overlayGroups = "Show County",
+                options = layersControlOptions(collapsed = FALSE)
             )
-            
+    })
+    
+    #Create table outputleafletmap
+    output$table = DT::renderDataTable(
+        DT::datatable(data = data,
+                      options = list(pageLength = 10),
+                      rownames = FALSE
         )
         
-
+    )
+    
+    
     
     
 }
