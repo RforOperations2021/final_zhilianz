@@ -19,7 +19,7 @@ library(rgeos)
 library(rgdal)
 library(leaflet.extras)
 
-# Read data 
+# Read data
 url <- URLencode('https://data.wprdc.org/api/3/action/datastore_search_sql?sql=SELECT * from "b6340d98-69a0-4965-a9b4-3480cea1182b"', repeated = TRUE)
 
 # Send request
@@ -49,10 +49,20 @@ ui <- dashboardPage(
         tabItems(
             # First tab content
             tabItem(tabName = "map",
-                    
                     shinyjs::useShinyjs(),
                     tags$style(type = "text/css", ".leaflet {height: 60vh !important;}"),
-                    leafletOutput("leafletmap")
+                    leafletOutput("leafletmap"),
+                    fluidRow(
+                        column(4,
+                               checkboxGroupInput("city","select_city",choices = unique(data$city_name))
+                               
+                        ),
+                        column(4,
+                               checkboxGroupInput("year","select_year",choices = unique(data$call_year))
+                               
+                        )
+                    )
+                    
                     
             ),
             
@@ -86,7 +96,24 @@ server <- function(input, output) {
             )
     })
     
-    #Create table outputleafletmap
+    data_subset <- reactive({
+        #filted by city 
+        data2 <- subset(data, city_name %in% input$city)
+        data2 <- subset(data, call_year %in% input$year)
+        
+        return(data2)
+    })
+    
+    observe({
+        #add interactive markers based on year and city selected
+        newdata <-  data_subset()
+        leafletProxy("leafletmap", data = newdata) %>%
+            clearMarkers() %>%
+            addMarkers(lng=newdata$census_block_group_center__x,lat = newdata$census_block_group_center__y)
+
+    })
+   
+    #Create table 
     output$table = DT::renderDataTable(
         DT::datatable(data = data,
                       options = list(pageLength = 10),
