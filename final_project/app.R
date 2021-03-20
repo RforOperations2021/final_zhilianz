@@ -10,19 +10,35 @@ library(DT)
 library(shinyBS)
 library(shinydashboard)
 library(flexdashboard)
+library(httr)
+library(jsonlite)
+library(shinyjs)
+library(plotly)
+library(leaflet)
+library(rgeos)
+library(rgdal)
+library(leaflet.extras)
 
 # Read data 
-get <- GET("https://data.pa.gov/resource/niuh-2xe3.json")
-data <- fromJSON(content(get, "text"))
-data <- data[!is.na(data$total_count),]
-row.names(data) <- NULL
+url <- URLencode('https://data.wprdc.org/api/3/action/datastore_search_sql?sql=SELECT * from "ff33ca18-2e0c-4cb5-bdcd-60a5dc3c0418"', repeated = TRUE)
+# Send request
+get <- GET(url)
+# Retrieve results
+rawdata <- fromJSON(content(get, "text"))$result$records
+# Data originally contains 500,000 rows, manually created a subset of original data
+data <- rawdata %>% sample_n(500, replace = FALSE)
 
-ui <- dashboardPage(
-    dashboardHeader(title = "placeholder"),
+
+#pitts <- readOGR("https://pghgishub-pittsburghpa.opendata.arcgis.com/datasets/a99f25fffb7b41c8a4adf9ea676a3a0b_0.geojson?outSR=%7B%22latestWkid%22%3A2272%2C%22wkid%22%3A102729%7D")
+pitts <- readOGR("./county/Allegheny_County_Census_Block_Groups_2016.shp", layer = "Allegheny_County_Census_Block_Groups_2016")
+
+
+plotui <- dashboardPage(
+    dashboardHeader(title = "911 EMS Dispatches"),
     dashboardSidebar(
         sidebarMenu(
-            menuItem("Map", tabName = "gauge", icon = icon("dashboard")),
-            menuItem("Chart",tabName = "analyze", icon=icon("diagnoses")),
+            menuItem("Map", tabName = "map", icon = icon("dashboard")),
+            menuItem("Chart",tabName = "chart", icon=icon("diagnoses")),
             menuItem("Data Table", tabName = "datatable", icon = icon("table"))
             
         )
@@ -30,7 +46,7 @@ ui <- dashboardPage(
     dashboardBody(
         tabItems(
             # First tab content, display basic statistics from five angles in gauge
-            tabItem(tabName = "gauge",
+            tabItem(tabName = "map",
                     
             ),
             
@@ -40,10 +56,7 @@ ui <- dashboardPage(
                     
                     
             ),
-            # third tab content, analyze relationship between stats for selected states
-            tabItem(tabName = "analyze",
-           
-            ),
+
             # fourth tab content, table output
             tabItem(tabName = "datatable",
                     DT::dataTableOutput("table")
@@ -54,11 +67,7 @@ ui <- dashboardPage(
 
 server <- function(input, output) {
 
-    
-    observeEvent(c(input$size,input$select_stat,input$select_stat2),{
-        
 
-        
         #Create table output
         output$table = DT::renderDataTable(
             DT::datatable(data = selected_data,
@@ -68,7 +77,7 @@ server <- function(input, output) {
             
         )
         
-    })
+
     
     
 }
