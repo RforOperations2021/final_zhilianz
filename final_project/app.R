@@ -31,8 +31,8 @@ data <- rawdata %>% sample_n(500, replace = FALSE)
 #Drop entire column if
 data <- data[,colSums(is.na(data))<nrow(data)]
 
-pitts <- readOGR("https://pghgishub-pittsburghpa.opendata.arcgis.com/datasets/a99f25fffb7b41c8a4adf9ea676a3a0b_0.geojson?outSR=%7B%22latestWkid%22%3A2272%2C%22wkid%22%3A102729%7D")
-# pitts<- readOGR("./county/Allegheny_County_Census_Block_Groups_2016.shp", layer = "Allegheny_County_Census_Block_Groups_2016")
+pitts <- readOGR("https://opendata.arcgis.com/datasets/9de0e9c07af04e638dbc9cb9070962c2_0.geojson")
+#pitts<- readOGR("./county/Allegheny_County_Census_Block_Groups_2016.shp", layer = "Allegheny_County_Census_Block_Groups_2016")
 
 
 ui <- dashboardPage(
@@ -54,7 +54,7 @@ ui <- dashboardPage(
                     leafletOutput("leafletmap"),
                     fluidRow(
                         column(4,
-                               checkboxGroupInput("city","select_city",choices = unique(data$city_name))
+                               selectInput("city","select_city", multiple = TRUE,choices = unique(data$city_name),selected ='PITTSBURGH' )
                                
                         ),
                         column(4,
@@ -69,7 +69,28 @@ ui <- dashboardPage(
             
             # Second tab content 
             tabItem(tabName = "chart",
-                    
+                    fluidRow(
+                        column(4,
+                               checkboxGroupInput("view_year","Select year",choices = unique(data$call_year),selected = c('2016','2017','2018','2019') ),
+                               
+                        ),
+                        column(4,
+                               selectInput("view_city","Select city", multiple = TRUE, choices = unique(data$city_name),selected =c('PITTSBURGH','FINDLAY','PLUM','CRAFTON') ),
+                               
+                        ),
+                        column(4,
+                               selectInput("view_priority","Select priority",choices = unique(data$priority_desc),selected ="EMS ALS life threatening response" ),
+                               
+                        )
+                    ),
+                    fluidRow(
+                        column(4,
+                               plotlyOutput("plot1")
+                        ),
+                        column(4,
+                               plotlyOutput("plot2")
+                        )
+                    ) 
                     
             ),
             
@@ -110,9 +131,33 @@ server <- function(input, output) {
         leafletProxy("leafletmap", data = newdata) %>%
             clearMarkers() %>%
             addMarkers(lng=newdata$census_block_group_center__x,lat = newdata$census_block_group_center__y)
-
+        
     })
-   
+    
+    data_subset2 <- reactive({
+        #filted by city 
+        data3 <- data
+        data3 <- subset(data3, call_year %in% input$view_year)
+        data3 <- subset(data3, city_name %in% input$view_city)
+        data3 <- subset(data3 ,priority_desc %in% input$view_priority)
+        print(data3)
+        return(data3)
+    })
+    output$plot1 <- renderPlotly({
+        ggplot(data = data_subset2(),
+               aes(x = call_year, fill = call_year)) +
+            labs (y = "Incident counts on specific priority", x = "Incident Year") +
+            geom_bar(stat = 'count') 
+    })
+    output$plot2 <- renderPlotly({
+        ggplot(data = data_subset2(),
+               aes(x = city_name, fill = city_name)) +
+            labs (x = "City name", x = "Incident counts on specific city") +
+            geom_bar(stat = 'count') 
+    })
+    
+    
+    
     #Create table 
     output$table = DT::renderDataTable(
         DT::datatable(data = data,
