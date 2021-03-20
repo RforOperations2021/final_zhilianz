@@ -12,8 +12,10 @@ library(shinydashboard)
 library(flexdashboard)
 
 # Read data 
-
-
+get <- GET("https://data.pa.gov/resource/niuh-2xe3.json")
+data <- fromJSON(content(get, "text"))
+data <- data[!is.na(data$total_count),]
+row.names(data) <- NULL
 
 ui <- dashboardPage(
     dashboardHeader(title = "placeholder"),
